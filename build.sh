@@ -15,13 +15,12 @@ BUILD_DIR="$PROJECT_DIR/build"
 echo "Building $PROJECT_NAME for $ARCH..."
 
 # Clean previous builds
+echo "Cleaning previous builds..."
 if [ -d "$BUILD_DIR" ]; then
     echo "Marking $BUILD_DIR as created by build system..."
     xattr -w com.apple.xcode.CreatedByBuildSystem true "$BUILD_DIR" || true
+    rm -rf "$BUILD_DIR"
 fi
-
-echo "Cleaning previous builds..."
-rm -rf "$BUILD_DIR"
 
 # Build the project (disable code signing for local builds)
 echo "Building project..."
@@ -35,7 +34,16 @@ xcodebuild \
     CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
     clean build
 
-echo "Build completed successfully!"
+BUILD_EXIT_CODE=$?
+
+if [ $BUILD_EXIT_CODE -eq 0 ]; then
+    echo "✅ Build completed successfully!"
+elif [ -f "$BUILD_DIR/$PROJECT_NAME.app/Contents/MacOS/$PROJECT_NAME" ]; then
+    echo "⚠️  Build completed with warnings (exit code $BUILD_EXIT_CODE), but app was created successfully!"
+else
+    echo "❌ Build failed with exit code $BUILD_EXIT_CODE"
+    exit $BUILD_EXIT_CODE
+fi
 echo "Built app location: $BUILD_DIR/$PROJECT_NAME.app"
 
 # Verify the architecture

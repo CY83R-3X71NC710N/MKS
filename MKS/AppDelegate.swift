@@ -1,6 +1,6 @@
 //
 //  AppDelegate.swift
-//  MechKey
+//  Mouse Click Sounds (MKS)
 //
 //  Created by Bogdan Ryabyshchuk on 9/5/18.
 //  Copyright © 2018 Bogdan Ryabyshchuk. All rights reserved.
@@ -55,8 +55,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         profileLoad()
         keyUpSoundLoad()
         keyRandomizeLoad()
-        volumeUpdate()
         mouseEffectsLoad()
+        
+        // Load sound players
+        loadSounds()
+        
+        // Update volume after loading sounds
+        volumeUpdate()
         
         // Create the Menu
         menuCreate()
@@ -142,6 +147,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Load an Array of Sound Players
     
     func loadSounds() {
+        // Ensure profile index is valid
+        guard self.profile >= 0 && self.profile < soundFiles.count else {
+            print("Invalid profile index: \(self.profile), defaulting to 0")
+            self.profile = 0
+        }
+        
         for (sound, files) in soundFiles[self.profile] {
             var downFiles: [AVAudioPlayer?] = []
             if let soundURL = Bundle.main.url(forResource: files.0, withExtension: "wav"){
@@ -149,11 +160,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     do {
                         try downFiles.append( AVAudioPlayer(contentsOf: soundURL) )
                     } catch {
-                        print("Failed to load \(files.0)")
+                        print("Failed to load \(files.0): \(error)")
+                        downFiles.append(nil)
                     }
                 }
             }else{
                 print("Can't Find Sound Files \(files.0)")
+                // Fill with nils if file not found
+                for _ in 0...self.playersMax {
+                    downFiles.append(nil)
+                }
             }
             var upFiles: [AVAudioPlayer?] = []
             if let soundURL = Bundle.main.url(forResource: files.1, withExtension: "wav"){
@@ -161,11 +177,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     do {
                         try upFiles.append( AVAudioPlayer(contentsOf: soundURL) )
                     } catch {
-                        print("Failed to load \(files.1)")
+                        print("Failed to load \(files.1): \(error)")
+                        upFiles.append(nil)
                     }
                 }
             }else{
                 print("Can't Find Sound Files \(files.1)")
+                // Fill with nils if file not found
+                for _ in 0...self.playersMax {
+                    upFiles.append(nil)
+                }
             }
             
             self.players[sound] = (downFiles, upFiles)
@@ -184,6 +205,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if let keySetings = keyMap[key] {
             keyLocation = (Float(keySetings[0]) - 5) / 5 * self.stereoWidth
             keySound = keySetings[1]
+        } else {
+            // Key not found in keyMap, exit early
+            if debugging {
+                print("Key \(key) not found in keyMap")
+            }
+            return
+        }
+        
+        // Check if players for this sound are initialized
+        guard let soundPlayers = self.players[keySound],
+              let currentPlayers = self.playersCurrentPlayer[keySound] else {
+            if debugging {
+                print("Sound players not initialized for sound \(keySound)")
+            }
+            return
         }
         
         func play(player: AVAudioPlayer, keyLocation: Float){
@@ -196,6 +232,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     
                     // Randomize Volume
                     player.volume = self.volumeLevel * Float.random(in: 0.95 ... 1.0 )
+                } else {
+                    // Ensure volume is set correctly
+                    player.volume = self.volumeLevel
                 }
                 
                 // Set the Location of the Mouse Click and Play the sound
@@ -205,20 +244,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         if down {
-            if let player = self.players[keySound]?.0[(self.playersCurrentPlayer[keySound]?.0)!]{
+            let currentIndex = currentPlayers.0
+            if currentIndex < soundPlayers.0.count,
+               let player = soundPlayers.0[currentIndex] {
                 play(player: player, keyLocation: keyLocation)
             }
-            self.playersCurrentPlayer[keySound]?.0 += 1
-            if (self.playersCurrentPlayer[keySound]?.0)! >= self.playersMax {
-                self.playersCurrentPlayer[keySound]?.0 = 0
+            if var currentPlayerState = self.playersCurrentPlayer[keySound] {
+                currentPlayerState.0 += 1
+                if currentPlayerState.0 >= self.playersMax {
+                    currentPlayerState.0 = 0
+                }
+                self.playersCurrentPlayer[keySound] = currentPlayerState
             }
         } else if self.keyUpSound {
-            if let player = self.players[keySound]?.1[(self.playersCurrentPlayer[keySound]?.1)!]{
+            let currentIndex = currentPlayers.1
+            if currentIndex < soundPlayers.1.count,
+               let player = soundPlayers.1[currentIndex] {
                 play(player: player, keyLocation: keyLocation)
             }
-            self.playersCurrentPlayer[keySound]?.1 += 1
-            if (self.playersCurrentPlayer[keySound]?.1)! >= self.playersMax {
-                self.playersCurrentPlayer[keySound]?.1 = 0
+            if var currentPlayerState = self.playersCurrentPlayer[keySound] {
+                currentPlayerState.1 += 1
+                if currentPlayerState.1 >= self.playersMax {
+                    currentPlayerState.1 = 0
+                }
+                self.playersCurrentPlayer[keySound] = currentPlayerState
             }
         }
     }
@@ -261,7 +310,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             image.size.height = 18
             self.menuItem?.image = image
         } else {
-            self.menuItem?.title = "MechKey"
+            self.menuItem?.title = "MKS"
         }
         
         let menu = NSMenu()
@@ -392,7 +441,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         volumeUpdate()
         volumeSave()
-        playSoundForKey(key: 0, keyIsDown: true)
+        // Play test sound using mouse key (1000) instead of invalid key 0
+        playSoundForKey(key: 1000, keyIsDown: true)
     }
     
     func volumeUpdate(){
@@ -543,15 +593,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     func profileLoad(){
         if UserDefaults.standard.object(forKey: "profile") != nil {
-            self.profile = UserDefaults.standard.integer(forKey: "profile")
+            let loadedProfile = UserDefaults.standard.integer(forKey: "profile")
+            // Ensure loaded profile is valid
+            if loadedProfile >= 0 && loadedProfile < soundFiles.count {
+                self.profile = loadedProfile
+            } else {
+                print("Invalid profile loaded: \(loadedProfile), defaulting to 0")
+                self.profile = 0
+            }
         }
         profileUpdate()
     }
     func profileSet(profile: Int) {
-        self.profile = profile
-        UserDefaults.standard.set(self.profile, forKey: "profile")
-        UserDefaults.standard.synchronize()
-        profileUpdate()
+        // Ensure profile index is valid
+        if profile >= 0 && profile < soundFiles.count {
+            self.profile = profile
+            UserDefaults.standard.set(self.profile, forKey: "profile")
+            UserDefaults.standard.synchronize()
+            profileUpdate()
+        } else {
+            print("Invalid profile index: \(profile), ignoring")
+        }
     }
     func profileUpdate(){
         self.players = [:]
@@ -584,7 +646,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if !accessEnabled {
             let alert = NSAlert()
             alert.messageText = "MKS Needs Permissions"
-            alert.informativeText = "macOS is awesome at protecting your privacy! However, as a result, in order for MKS to work, you will need to add it to the list of apps that are allowed to control your computer. That's the only way MKS can know when you press a key to play that sweet mechanical keyboard sound :) To add MKS to the list of trusted apps do the following: \n\nOpen System Preferences > Security & Privacy > Privacy > Accessibility, click on the Padlock in the bottom lefthand corner, and drag the MKS app into the list. \n\nHitting OK will close MKS. After you have done this, restart the app."
+            alert.informativeText = "macOS is awesome at protecting your privacy! However, as a result, in order for MKS to work, you will need to add it to the list of apps that are allowed to control your computer. That's the only way MKS can know when you click your mouse to play those satisfying click sounds :) To add MKS to the list of trusted apps do the following: \n\nOpen System Preferences > Security & Privacy > Privacy > Accessibility, click on the Padlock in the bottom lefthand corner, and drag the MKS app into the list. \n\nHitting OK will close MKS. After you have done this, restart the app."
             alert.runModal()
             NSApp.terminate(nil)
         }
