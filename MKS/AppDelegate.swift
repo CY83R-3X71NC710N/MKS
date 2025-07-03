@@ -151,6 +151,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard self.profile >= 0 && self.profile < soundFiles.count else {
             print("Invalid profile index: \(self.profile), defaulting to 0")
             self.profile = 0
+            return
         }
         
         for (sound, files) in soundFiles[self.profile] {
