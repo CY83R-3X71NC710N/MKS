@@ -26,7 +26,7 @@ This is a specialized fork of the original MKS project, focusing exclusively on 
 
 ### Manual
 
-1. Download the [MKS.dmg](https://github.com/CY83R-3X71NC710N/MKS) from the releases tab above.
+1. Download the [MKS.app.zip](https://github.com/CY83R-3X71NC710N/MKS) from the releases tab above.
 1. Open the MKS.dmg and drag MKS app to the Application folder on your dock.
 1. Grant Accessibility permissions (see below).
 
