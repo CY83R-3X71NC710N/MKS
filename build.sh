@@ -15,11 +15,15 @@ BUILD_DIR="$PROJECT_DIR/build"
 echo "Building $PROJECT_NAME for $ARCH..."
 
 # Clean previous builds
+if [ -d "$BUILD_DIR" ]; then
+    echo "Marking $BUILD_DIR as created by build system..."
+    xattr -w com.apple.xcode.CreatedByBuildSystem true "$BUILD_DIR" || true
+fi
+
 echo "Cleaning previous builds..."
 rm -rf "$BUILD_DIR"
-mkdir -p "$BUILD_DIR"
 
-# Build the project
+# Build the project (disable code signing for local builds)
 echo "Building project..."
 xcodebuild \
     -project "$PROJECT_DIR/$PROJECT_NAME.xcodeproj" \
@@ -28,6 +32,7 @@ xcodebuild \
     -arch "$ARCH" \
     -derivedDataPath "$BUILD_DIR/DerivedData" \
     CONFIGURATION_BUILD_DIR="$BUILD_DIR" \
+    CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO \
     clean build
 
 echo "Build completed successfully!"
