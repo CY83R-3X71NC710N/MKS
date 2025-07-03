@@ -20,18 +20,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Player Arrays and Sound Profiles    
     var profile: Int = 0
     
-    let soundFiles: [[Int: (String, String)]] = [[0: ("profile-1-normal-down", "profile-1-normal-up"),
-                                                  1: ("profile-1-large-down", "profile-1-large-up"),
-                                                  2: ("profile-1-large-down", "profile-1-large-up"),
-                                                  3: ("profile-1-mouse-down", "profile-1-mouse-up")],
-                                                 [0: ("profile-2-normal-down", "profile-2-normal-up"),
-                                                  1: ("profile-2-large-down", "profile-2-large-up"),
-                                                  2: ("profile-2-enter-down", "profile-2-enter-up"),
-                                                  3: ("profile-2-mouse-down", "profile-2-mouse-up")],
-                                                 [0: ("profile-3-normal-down", "profile-3-normal-up"),
-                                                  1: ("profile-3-large-down", "profile-3-large-up"),
-                                                  2: ("profile-3-enter-down", "profile-3-enter-up"),
-                                                  3: ("profile-3-mouse-down", "profile-3-mouse-up")]]
+    let soundFiles: [[Int: (String, String)]] = [[3: ("profile-1-mouse-down", "profile-1-mouse-up")],
+                                                 [3: ("profile-2-mouse-down", "profile-2-mouse-up")],
+                                                 [3: ("profile-3-mouse-down", "profile-3-mouse-up")]]
     
     var players: [Int: ([AVAudioPlayer?], [AVAudioPlayer?])] = [:]
     var playersCurrentPlayer: [Int: (Int, Int)] = [:]
@@ -40,8 +31,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // App Settings
     var volumeLevel:Float = 1.0
     var volumeMuted:Bool = false
-    
-    var modKeysMuted:Bool = false
     
     var stereoWidth:Float = 0.2
     var stereoWidthDefult:Float = 0.2
@@ -62,7 +51,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Load Settings
         volumeLoad()
-        modKeyMutedLoad()
         stereoWidthLoad()
         profileLoad()
         keyUpSoundLoad()
@@ -76,25 +64,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Check for Permissions
         checkPrivecyAccess()
         
-        // Add Key Listeners
-        loadKeyListeners()
+        // Add Mouse Listeners
+        loadMouseListeners()
     }
     
     // MARK: Event Listeners
     
-    func loadKeyListeners() {
-        NSEvent.addGlobalMonitorForEvents(matching: NSEvent.EventTypeMask.keyDown, handler: { (event) -> Void in
-            self.keyPressDown(event: event)
-        })
-        
-        NSEvent.addGlobalMonitorForEvents(matching: NSEvent.EventTypeMask.keyUp, handler: { (event) -> Void in
-            self.keyPressUp(event: event)
-        })
-        
-        NSEvent.addGlobalMonitorForEvents(matching: NSEvent.EventTypeMask.flagsChanged, handler: { (event) -> Void in
-            self.keyPressMod(event: event)
-        })
-        
+    func loadMouseListeners() {
         NSEvent.addGlobalMonitorForEvents(matching: NSEvent.EventTypeMask.leftMouseDown, handler: { (event) -> Void in
             self.mousePressDown(event: event)
         })
@@ -154,208 +130,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
-    // MARK: Key Functions
-    // Key Press Function for Normal Keys
-    func keyPressDown(event:NSEvent){
-        if !volumeMuted {
-            if !event.isARepeat {
-                playSoundForKey(key: Int(event.keyCode), keyIsDown: true)
-                systemMenuMessage(message: "\(event.keyCode)")
-            }
-        }
-        
-        // Some Hot Key Processing Code
-        if modKeysPrevMask == modKeyMask["keyFunction"]! {
-            if !event.isARepeat {
-                // Fn+Esc Mute Keys
-                if event.keyCode == 53 {
-                    if volumeMuted {
-                        volumeSet(vol: self.volumeLevel, muted: false)
-                    } else {
-                        volumeSet(vol: self.volumeLevel, muted: true)
-                    }
-                }
-            }
-        }
-    }
-    
-    func keyPressUp(event:NSEvent){
-        if !volumeMuted {
-            if !event.isARepeat {
-                playSoundForKey(key: Int(event.keyCode), keyIsDown: false)
-            }
-        }
-    }
-    
-    
-    // Key Press Functions for Mod Keys
-    var modKeysPrev: [String: Bool] = ["keyShiftRight":  false,
-                                       "keyShiftLeft":   false,
-                                       "keyAltLeft":     false,
-                                       "keyAltRight":    false,
-                                       "keyCMDLeft":     false,
-                                       "keyCMDRight":    false,
-                                       "keyControl":     false,
-                                       "keyFunction":    false]
-    var modKeysPrevMask: UInt = 0
-    
-    let modKeyMask: [String: UInt] = ["keyShiftRight":  0b000000100000000100000100,
-                                      "keyShiftLeft":   0b000000100000000100000010,
-                                      "keyAltLeft":     0b000010000000000100100000,
-                                      "keyAltRight":    0b000010000000000101000000,
-                                      "keyCMDLeft":     0b000100000000000100001000,
-                                      "keyCMDRight":    0b000100000000000100010000,
-                                      "keyControl":     0b000001000000000100000001,
-                                      "keyFunction":    0b100000000000000100000000]
-    
-    var modKeysPrevEvent: NSDate = NSDate()
-    
-    func keyPressMod(event:NSEvent){
-        // Record Event Time Interval Since Last
-        let timeSinceLastModKeyEvent = modKeysPrevEvent.timeIntervalSinceNow
-        self.modKeysPrevEvent = NSDate()
-        
-        let prevEventTooClose: Bool = (timeSinceLastModKeyEvent <= -0.045)
-        if self.debugging {
-            if prevEventTooClose {
-                systemMenuMessage(message: "Too Close")
-            } else {
-                systemMenuMessage(message: "Not Too Close")
-            }
-        }
-        
-        // Grab the Current Mod Key Mask
-        let bitmask = event.modifierFlags.rawValue
-        
-        // Key Maps for the Keys
-        let modKeysCodes: [String: Int] = ["keyShiftRight":  60,
-                                           "keyShiftLeft":   57,
-                                           "keyAltLeft":     58,
-                                           "keyAltRight":    61,
-                                           "keyCMDLeft":     55,
-                                           "keyCMDRight":    555, // Not the actual Key code. Used to Diff left from right.
-                                           "keyControl":     59,
-                                           "keyFunction":    63]
-        
-        // Create New Key Press Array
-        var modKeysCurrent: [String: Bool] = ["keyShiftRight":  false,
-                                              "keyShiftLeft":   false,
-                                              "keyAltLeft":     false,
-                                              "keyAltRight":    false,
-                                              "keyCMDLeft":     false,
-                                              "keyCMDRight":    false,
-                                              "keyControl":     false,
-                                              "keyFunction":    false]
-        
-        // Create New Mod Key Array and See Which Key was Pressed or Released
-        for (key, _) in self.modKeysPrev {
-            modKeysCurrent[key] = (bitmask & modKeyMask[key]! == modKeyMask[key])
-            if modKeysCurrent[key] != self.modKeysPrev[key] && !self.modKeysMuted && !self.volumeMuted && prevEventTooClose {
-                if let keyWasDown = self.modKeysPrev[key] {
-                    if keyWasDown {
-                        // Key was Released
-                        playSoundForKey(key: modKeysCodes[key]!, keyIsDown: false)
-                        systemMenuMessage(message: "\(key) Up")
-                    } else {
-                        // Key was Pressed
-                        playSoundForKey(key: modKeysCodes[key]!, keyIsDown: true)
-                        systemMenuMessage(message: "\(key) Down")
-                    }
-                }
-            }
-        }
-        
-        // Now Let's Update the Stored Key Mask
-        self.modKeysPrev = modKeysCurrent
-        self.modKeysPrevMask = bitmask
-    }
-    
-    // MARK: Key Sound Function
+    // MARK: Mouse Sound Function
     
     // The Map of All the Keys with Location and Sound to Play.
     // [key: [location, sound]]
-    // The key is the numarical key, location is 0-10, 0 is left 10 is right, 5 is middle
-    // Sounds are 0, 1, or 2 with 0 being normal key sounds, 1 being larger keys,
-    // and all of the mod keys are 3, for a shifting like sound that I may add in the future
+    // The key is the numerical key, location is 0-10, 0 is left 10 is right, 5 is middle
+    // Mouse clicks use key 1000 and sound type 3
     
-    let keyMap: [Int: Array<Int>] =  [1000:  [5,3], // Mouse Key
-                                      53:  [0,0],
-                                      50:  [0,0],
-                                      48:  [0,1],
-                                      57:  [0,2],
-                                      63:  [0,2],
-                                      122: [1,0],
-                                      18:  [1,0],
-                                      19:  [1,0],
-                                      12:  [1,0],
-                                      0:   [1,0],
-                                      59:  [1,2],
-                                      120: [2,0],
-                                      99:  [2,0],
-                                      20:  [2,0],
-                                      13:  [2,0],
-                                      1:   [2,0],
-                                      6:   [2,0],
-                                      7:   [2,0],
-                                      58:  [2,2],
-                                      118: [3,0],
-                                      21:  [3,0],
-                                      14:  [3,0],
-                                      15:  [3,0],
-                                      2:   [3,0],
-                                      8:   [3,0],
-                                      55:  [3,2],
-                                      96:  [4,0],
-                                      23:  [4,0],
-                                      22:  [4,0],
-                                      17:  [4,0],
-                                      3:   [4,0],
-                                      5:   [4,0],
-                                      9:   [4,0],
-                                      97:  [5,0],
-                                      26:  [5,0],
-                                      16:  [5,0],
-                                      4:   [5,0],
-                                      11:  [5,0],
-                                      45:  [5,0],
-                                      49:  [5,1],
-                                      98:  [6,0],
-                                      28:  [6,0],
-                                      32:  [6,0],
-                                      34:  [6,0],
-                                      38:  [6,0],
-                                      40:  [6,0],
-                                      46:  [6,0],
-                                      100: [7,0],
-                                      25:  [7,0],
-                                      29:  [7,0],
-                                      31:  [7,0],
-                                      37:  [7,0],
-                                      43:  [7,0],
-                                      555: [7,2],
-                                      101: [8,0],
-                                      109: [8,0],
-                                      27:  [8,0],
-                                      35:  [8,0],
-                                      41:  [8,0],
-                                      47:  [8,0],
-                                      44:  [8,0],
-                                      61:  [8,2],
-                                      103: [9,0],
-                                      24:  [9,0],
-                                      33:  [9,0],
-                                      30:  [9,0],
-                                      39:  [9,0],
-                                      123: [9,1],
-                                      111: [10,0],
-                                      51:  [10,1],
-                                      42:  [10,0],
-                                      76:  [10,1],
-                                      36:  [10,1],
-                                      60:  [10,2],
-                                      126: [10,1],
-                                      125: [10,1],
-                                      124: [10,1]]
+    let keyMap: [Int: Array<Int>] =  [1000:  [5,3]] // Mouse Key only
     
     // Load an Array of Sound Players
     
@@ -416,7 +198,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     player.volume = self.volumeLevel * Float.random(in: 0.95 ... 1.0 )
                 }
                 
-                // Set the Location of the Key and Play the sound
+                // Set the Location of the Mouse Click and Play the sound
                 player.pan = keyLocation
                 player.play()
             }
@@ -442,7 +224,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     // MARK: System Menu Setup
-    let menuItemVolumeMute = NSMenuItem(title: "Mute Keys", action: #selector(menuSetVolMute), keyEquivalent: "")
+    let menuItemVolumeMute = NSMenuItem(title: "Mute Mouse Clicks", action: #selector(menuSetVolMute), keyEquivalent: "")
     let menuItemVolume10 = NSMenuItem(title: "10% Volume", action: #selector(menuSetVol0), keyEquivalent: "")
     let menuItemVolume25 = NSMenuItem(title: "25% Volume", action: #selector(menuSetVol1), keyEquivalent: "")
     let menuItemVolume50 = NSMenuItem(title: "50% Volume", action: #selector(menuSetVol2), keyEquivalent: "")
@@ -450,11 +232,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     let menuItemVolume100 = NSMenuItem(title: "100% Volume", action: #selector(menuSetVol4), keyEquivalent: "")
     let menuItemSoundStereo = NSMenuItem(title: "Stereo Sound", action: #selector(menuStereo), keyEquivalent: "")
     let menuItemSoundMono = NSMenuItem(title: "Mono Sound", action: #selector(menuMono), keyEquivalent: "")
-    let menuItemModKeysOn = NSMenuItem(title: "Mod Keys On", action: #selector(menuModsOn), keyEquivalent: "")
-    let menuItemModKeysOff = NSMenuItem(title: "Mod Keys Off", action: #selector(menuModKeysMuted), keyEquivalent: "")
     
-    let menuItemKeyUpOn = NSMenuItem(title: "Keyup Sound On", action: #selector(menuKeyupSoundOn), keyEquivalent: "")
-    let menuItemKeyUpOff = NSMenuItem(title: "Keyup Sound Off", action: #selector(menuKeyupSoundOff), keyEquivalent: "")
+    let menuItemKeyUpOn = NSMenuItem(title: "Mouse Up Sound On", action: #selector(menuKeyupSoundOn), keyEquivalent: "")
+    let menuItemKeyUpOff = NSMenuItem(title: "Mouse Up Sound Off", action: #selector(menuKeyupSoundOff), keyEquivalent: "")
     
     let menuItemRandomizeOn = NSMenuItem(title: "Randomize Pitch On", action: #selector(menuRandomizeOn), keyEquivalent: "")
     let menuItemRandomizeOff = NSMenuItem(title: "Randomize Pitch Off", action: #selector(menuRandomizeOff), keyEquivalent: "")
@@ -494,9 +274,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
         menu.addItem(self.menuItemSoundStereo)
         menu.addItem(self.menuItemSoundMono)
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(self.menuItemModKeysOn)
-        menu.addItem(self.menuItemModKeysOff)
         menu.addItem(NSMenuItem.separator())
         menu.addItem(self.menuItemKeyUpOn)
         menu.addItem(self.menuItemKeyUpOff)
@@ -547,14 +324,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     @objc func menuMono(){
         stereoWidthSet(width: 0)
-    }
-    
-    @objc func menuModsOn(){
-        modKeyMutedSet(muted: false)
-    }
-    
-    @objc func menuModKeysMuted(){
-        modKeyMutedSet(muted: true)
     }
     
     @objc func menuKeyupSoundOn(){
@@ -690,33 +459,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     
-    // MARK: Mod Key Settings
-    
-    func modKeyMutedLoad() {
-        if UserDefaults.standard.object(forKey: "modKeysMuted") != nil {
-            self.modKeysMuted = UserDefaults.standard.bool(forKey: "modKeysMuted")
-        }
-        modKeyMutedUpdate()
-    }
-    
-    func modKeyMutedSet(muted: Bool) {
-        self.modKeysMuted = muted
-        UserDefaults.standard.set(self.modKeysMuted, forKey: "modKeysMuted")
-        UserDefaults.standard.synchronize()
-        modKeyMutedUpdate()
-    }
-    
-    func modKeyMutedUpdate() {
-        if self.modKeysMuted {
-            menuItemModKeysOff.state = NSControl.StateValue.on
-            menuItemModKeysOn.state = NSControl.StateValue.off
-        } else {
-            menuItemModKeysOff.state = NSControl.StateValue.off
-            menuItemModKeysOn.state = NSControl.StateValue.on
-        }
-    }
-    
-    // MARK: KeyUp Sound Settings
+    // MARK: Mouse Up Sound Settings
     
     func keyUpSoundLoad() {
         if UserDefaults.standard.object(forKey: "keyUpSound") != nil {
