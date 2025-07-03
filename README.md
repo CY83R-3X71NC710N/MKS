@@ -24,18 +24,9 @@ This is a specialized fork of the original MKS project, focusing exclusively on 
 
 ## Installation
 
-### Brew
-
-1. Install [brew](https://brew.sh/).
-1. Run:
-
-        $ brew install --cask mks
-
-1. Grant Accessibility permissions (see below).
-
 ### Manual
 
-1. Download the [MKS.dmg](https://github.com/x0054/MKS/releases/latest) from the releases tab above.
+1. Download the [MKS.dmg](https://github.com/CY83R-3X71NC710N/MKS) from the releases tab above.
 1. Open the MKS.dmg and drag MKS app to the Application folder on your dock.
 1. Grant Accessibility permissions (see below).
 
